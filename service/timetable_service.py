@@ -1,23 +1,201 @@
-import pytz
+import json
+from datetime import datetime, tzinfo, timezone
 
+from components.dropdown import DiscordDropdownComponent
+from components.embed import DiscordEmbedComponent
+from components.view import DiscordViewComponent
+from config.config import Config
+from constants.time_table_constants import ALLOWED_TIMEZONES, ALLOWED_AIR_TYPES
+from db.entity.timetabe_entity import TimeTableDao, TimeTableModel
 from util.datetime_utils import DateTimeUtils
 from util.http_client_utils import make_get_request
 from util.logger import log
+from util.utils import get_value_from_interaction
 
 
-def get_timetable_data():
-    headers = {
-        'Authorization': 'Bearer ',
-        'User-Agent': 'Cyrus'
-    }
-    timeline_data = make_get_request(url='https://animeschedule.net/api/v3/timetables/sub', headers=headers)
+def filter_timetable_data(
+    timetable_data: list[dict],
+    start_timestamp: datetime,
+    end_timestamp: datetime,
+    filter_on_date: bool,
+    tz: tzinfo = timezone.utc,
+):
+    timetable = []
+    for data in timetable_data:
+        episode_timestamp = DateTimeUtils.get_timestamp_from_string(
+            data.get("episodeDate"), tz
+        )
+        if filter_on_date is True and DateTimeUtils.are_dates_equal(
+            start_timestamp, episode_timestamp
+        ):
+            timetable.append(data)
+        elif filter_on_date is False and DateTimeUtils.does_timestamp_lie_between(
+            episode_timestamp, start_timestamp, end_timestamp
+        ):
+            log.info("%s release today", data.get("title"))
+            timetable.append(data)
+    return timetable
 
-    for data in timeline_data:
-        current_timestamp = DateTimeUtils.get_current_time()
-        episode_timestamp = DateTimeUtils.get_timestamp_from_string(data['episodeDate'])
-        if DateTimeUtils.are_dates_equal(current_timestamp, episode_timestamp):
-            log.info("%s release today", data['title'])
 
-# def get_timetable():
+def get_timetable_data(
+    start_timestamp: datetime | None,
+    end_timestamp: datetime | None,
+    tz: tzinfo,
+    air_type: str,
+):
+    try:
+        headers = {
+            "Authorization": Config.get_as_api_token(),
+            "User-Agent": "Cyrus",
+        }
+        timetable_data: list[dict] = make_get_request(
+            url=f"https://animeschedule.net/api/v3/timetables/{air_type if air_type else 'sub'}",
+            headers=headers,
+        )
+        if start_timestamp is None or end_timestamp is None:
+            return timetable_data
 
-get_timetable()
+        return filter_timetable_data(
+            timetable_data, start_timestamp, end_timestamp, False, tz
+        )
+    except Exception as e:
+        log.error(
+            "Exception encountered while fetching timetable %s", str(e), exc_info=e
+        )
+        return []
+
+
+def refresh_timetable_data_in_db(timezone_str: str, air_type: str, tz: tzinfo):
+    current_timestamp = DateTimeUtils.get_current_utc_time()
+    timetable_data: list[dict] = get_timetable_data(None, None, tz, air_type)
+
+    weeks = dict()
+    for data in timetable_data:
+        episode_day = DateTimeUtils.get_date_from_string(data.get("episodeDate"))
+        weeks[(str(episode_day))] = True
+
+    entity: TimeTableModel = TimeTableModel()
+    entity.refresh_timestamp = str(current_timestamp)
+    entity.type = air_type
+    entity.json = json.dumps(timetable_data)
+    entity.weeks = ",".join(weeks)
+    entity.timezone = timezone_str
+    TimeTableDao.save(entity)
+
+    return timetable_data, entity.weeks
+
+
+async def timetable_dropdown_callback(interaction):
+    await interaction.response.send_message(
+        content=f"okay selected {get_value_from_interaction(interaction)}"
+    )
+
+
+def get_timetable_embed(data: list[dict], day, weeks, air_type: str) -> dict:
+    base_img_url = "https://img.animeschedule.net/production/assets/public/img/"
+    heading_embed_props = [
+        {
+            "title": f"`{air_type.upper()}` **Anime schedule for {datetime.strptime(day, "%Y-%m-%d").strftime('%B %d')}**",
+            "color": 0,
+        },
+    ]
+    embed_props = [
+        {
+            "title": _data.get("title", "Untitled"),
+            "color": 0,
+            "thumbnail": f"{base_img_url}{_data.get("imageVersionRoute")}",
+            "fields": [
+                {
+                    "name": "Episode",
+                    "value": f"{_data.get("episodeNumber", "N/A")}",
+                    "inline": True,
+                },
+                {
+                    "name": "Airing on",
+                    "value": f"{_data.get("episodeDate", "N/A")}",
+                    "inline": True,
+                },
+                (
+                    {
+                        "name": "Air type",
+                        "value": f"{_data.get("airType", "N/A")}",
+                        "inline": True,
+                    }
+                    if air_type == "all"
+                    else None
+                ),
+            ],
+        }
+        for _data in data
+    ]
+    heading_embeds = DiscordEmbedComponent.get_embeds(heading_embed_props)
+    embeds = DiscordEmbedComponent.get_embeds(embed_props)
+
+    dropdown_var = DiscordDropdownComponent.get_dropdown_component(
+        {
+            "options": [
+                {
+                    "label": datetime.strptime(week, "%Y-%m-%d").strftime("%B %d"),
+                    "default": week == day,
+                }
+                for week in weeks
+            ],
+            "callback": timetable_dropdown_callback,
+            "placeholder": "Select day",
+            "min_values": 1,
+            "max_values": 1,
+        }
+    )
+    view_var = DiscordViewComponent.get_view({"items": [dropdown_var]})
+
+    return {"heading_embeds": heading_embeds, "embeds": embeds, "view": view_var}
+
+
+def get_timetable_error_embed(msg: str = None) -> dict:
+    return {"embed": DiscordEmbedComponent.get_error_embed(msg), "view": None}
+
+
+def get_timetable(timezone_str: str, air_type: str) -> dict:
+    try:
+        if timezone_str not in ALLOWED_TIMEZONES or air_type not in ALLOWED_AIR_TYPES:
+            return get_timetable_error_embed(
+                "Invalid input value, please select a valid value."
+            )
+
+        timezone = DateTimeUtils.get_timezone_from_string(timezone_str)
+        current_timestamp = DateTimeUtils.get_current_time(timezone)
+        current_day = str(current_timestamp.date())
+        # Check if timetable is there for type
+        existing_data: TimeTableModel = TimeTableDao.get_by_type(air_type)
+        if existing_data is None or current_day not in existing_data.weeks:
+            # Refresh data in db and construct embed
+            if existing_data is not None:
+                TimeTableDao.delete(air_type)
+            new_data, weeks = refresh_timetable_data_in_db(
+                timezone_str, air_type, timezone
+            )
+            filtered_data = filter_timetable_data(
+                new_data, current_timestamp, current_timestamp, True, timezone
+            )
+            return get_timetable_embed(
+                filtered_data, current_day, weeks.split(","), air_type
+            )
+
+        # Construct embed
+        filtered_data = filter_timetable_data(
+            json.loads(existing_data.json),
+            current_timestamp,
+            current_timestamp,
+            True,
+            timezone,
+        )
+        return get_timetable_embed(
+            filtered_data, current_day, existing_data.weeks.split(","), air_type
+        )
+    except Exception as e:
+        log.error(
+            "Exception encountered while getting timetable for discord %s",
+            str(e),
+            exc_info=e,
+        )
+        return get_timetable_error_embed()

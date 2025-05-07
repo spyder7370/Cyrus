@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, tzinfo
+from datetime import datetime, timezone, tzinfo, date
 
 import pytz
 
@@ -20,7 +20,9 @@ class DateTimeUtils:
         return DateTimeUtils.get_current_time()
 
     @staticmethod
-    def convert_timestamp_from_utc(timestamp: datetime = None, tz: tzinfo = None) -> datetime | None:
+    def convert_timestamp_from_utc(
+        timestamp: datetime = None, tz: tzinfo = None
+    ) -> datetime | None:
         if timestamp is None or tz is None:
             return None
 
@@ -34,7 +36,9 @@ class DateTimeUtils:
         return timestamp.astimezone(timezone.utc)
 
     @staticmethod
-    def get_timestamp_from_string(timestamp_string: str = None, tz: tzinfo = None) -> datetime | None:
+    def get_timestamp_from_string(
+        timestamp_string: str = None, tz: tzinfo = None
+    ) -> datetime | None:
         if StringUtils.is_empty(timestamp_string):
             return None
 
@@ -44,8 +48,33 @@ class DateTimeUtils:
         return datetime.fromisoformat(timestamp_string).astimezone(tz=tz)
 
     @staticmethod
+    def get_date_from_string(
+        timestamp_string: str = None, tz: tzinfo = None
+    ) -> date | None:
+        if StringUtils.is_empty(timestamp_string):
+            return None
+
+        if tz is None:
+            return datetime.fromisoformat(timestamp_string).date()
+
+        return datetime.fromisoformat(timestamp_string).astimezone(tz=tz).date()
+
+    @staticmethod
     def are_dates_equal(timestamp1: datetime, timestamp2: datetime) -> bool:
         if timestamp1 is None or timestamp2 is None:
             return False
 
         return timestamp1.date() == timestamp2.date()
+
+    @staticmethod
+    def does_timestamp_lie_between(
+        timestamp: datetime, start_timestamp: datetime, end_timestamp: datetime
+    ) -> bool:
+        if timestamp is None or start_timestamp is None or end_timestamp is None:
+            return False
+
+        return start_timestamp <= timestamp <= end_timestamp
+
+    @staticmethod
+    def get_timezone_from_string(tz_str: str) -> tzinfo:
+        return pytz.timezone(tz_str)

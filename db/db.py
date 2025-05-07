@@ -1,5 +1,5 @@
-import sqlite3
+import sqlalchemy as db
 
-conn = sqlite3.connect("cyrus.db")
-conn.autocommit = True
-cursor = conn.cursor()
+engine = db.create_engine("sqlite:///db/cyrus.db")
+conn = engine.connect()
+metadata = db.MetaData()

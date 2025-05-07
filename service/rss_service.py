@@ -3,9 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 import feedparser
 
+
 url = "https://honeysanime.com/feed/"
 
-if hasattr(ssl, '_create_unverified_context'):
+if hasattr(ssl, "_create_unverified_context"):
     ssl._create_default_https_context = ssl._create_unverified_context
 feed = feedparser.parse(url)
 
@@ -17,9 +18,8 @@ for entry in feed.entries:
     print(entry_date - now)
     # if last refresh was more than time_range ago, fetch all posts from last_refresh_time till now and update last_refresh_time
     if now - entry_date <= time_range:
-        print('entry')
+        print("entry")
         # print("Entry Title:", entry.title)
         # print("Entry Link:", entry.link)
         # print("Entry Published Date:", entry.published)
         # print("\n")
-

@@ -1,7 +1,31 @@
 from discord import Embed
 
-def get_embed() -> Embed:
-    embed_var = Embed(title="Title", description="Desc", color=0xF1C232)
-    embed_var.add_field(name="Field1", value="hi", inline=False)
-    embed_var.add_field(name="Field2", value="hi2", inline=False)
-    return embed_var
+
+class DiscordEmbedComponent:
+    @staticmethod
+    def get_embeds(props: list[dict]) -> list[Embed]:
+        embeds = []
+        for prop in props:
+            embed_var = Embed(
+                title=prop.get("title"),
+                description=prop.get("description"),
+                color=prop.get("color"),
+            )
+            fields: list[dict] = prop.get("fields", [])
+            for field in fields:
+                if not field:
+                    continue
+                embed_var.add_field(
+                    name=field.get("name"),
+                    value=field.get("value"),
+                    inline=field.get("inline"),
+                )
+            embed_var.set_thumbnail(url=prop.get("thumbnail"))
+            embeds.append(embed_var)
+        return embeds
+
+    @staticmethod
+    def get_error_embed(
+        msg: str = "Something went wrong, please try again later.",
+    ) -> Embed:
+        return Embed(title="Request Failed", description=msg, color=0xF90F07)

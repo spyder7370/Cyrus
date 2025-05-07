@@ -1,5 +1,6 @@
 import logging as log
 
+
 log.basicConfig(
     format="[%(asctime)s] [%(levelname)s] %(filename)s:%(lineno)d: %(message)s",
     style="%",
