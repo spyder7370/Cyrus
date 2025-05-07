@@ -3,8 +3,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 
 from config.config import Config
-from service.timetable_service import get_timetable
-from util.list_utils import ListUtils
+from service.timetable_service import send_timetable_embeds_to_discord
 from util.logger import log
 
 load_dotenv()
@@ -25,6 +24,7 @@ async def on_ready():
         )
 
         await tree.sync(guild=discord.Object(id=554630626175614978))
+        await tree.sync(guild=discord.Object(id=1369602842645499994))
 
         log.info("Tree commands have been synced")
     except Exception as e:
@@ -36,7 +36,10 @@ async def on_ready():
 @tree.command(
     name="timetable",
     description="Get anime time table for current week",
-    guild=discord.Object(id=554630626175614978),
+    guilds=[
+        discord.Object(id=554630626175614978),
+        discord.Object(id=1369602842645499994),
+    ],
 )
 @app_commands.choices(
     timezone=[
@@ -56,15 +59,7 @@ async def timetable_slash_command(
     interaction, timezone: str = "UTC", type: str = "sub"
 ):
     log.info("Fetching timetable for timezone: %s", timezone)
-    data: dict = get_timetable(timezone, type)
-    embeds = data.get("embeds", [])
-    view = data.get("view")
-    embed_chunks = ListUtils.chunk_list(embeds, 10)
-    await interaction.response.send_message(embeds=data.get("heading_embeds"))
-    for i, chunk in enumerate(embed_chunks):
-        await interaction.followup.send(
-            embeds=chunk, **({"view": view} if i == len(embed_chunks) - 1 else {})
-        )
+    await send_timetable_embeds_to_discord(interaction, timezone, type)
 
 
 client.run(Config.get_discord_token())

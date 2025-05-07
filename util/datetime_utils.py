@@ -48,6 +48,12 @@ class DateTimeUtils:
         return datetime.fromisoformat(timestamp_string).astimezone(tz=tz)
 
     @staticmethod
+    def get_timestamp_from_date(date_string: str, tz: tzinfo = None) -> datetime | None:
+        if StringUtils.is_empty(date_string):
+            return None
+        return datetime.strptime(date_string, "%Y-%m-%d").replace(tzinfo=tz)
+
+    @staticmethod
     def get_date_from_string(
         timestamp_string: str = None, tz: tzinfo = None
     ) -> date | None:

@@ -14,11 +14,17 @@ class DiscordDropdownComponent:
 
         for option in options:
             label = option.get("label")
+            value = option.get("value")
             description = option.get("description")
             default = option.get("default")
             if StringUtils.is_not_empty(label):
                 dropdown_options.append(
-                    SelectOption(label=label, description=description, default=default)
+                    SelectOption(
+                        label=label,
+                        value=value,
+                        description=description,
+                        default=default,
+                    )
                 )
         return dropdown_options
 

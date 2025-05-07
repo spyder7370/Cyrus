@@ -9,8 +9,30 @@ from constants.time_table_constants import ALLOWED_TIMEZONES, ALLOWED_AIR_TYPES
 from db.entity.timetabe_entity import TimeTableDao, TimeTableModel
 from util.datetime_utils import DateTimeUtils
 from util.http_client_utils import make_get_request
+from util.list_utils import ListUtils
 from util.logger import log
 from util.utils import get_value_from_interaction
+
+
+async def send_timetable_embeds_to_discord(
+    interaction,
+    timezone: str,
+    type: str,
+    current_timestamp: datetime = None,
+    is_heading_followup: bool = False,
+):
+    data: dict = get_timetable(timezone, type, current_timestamp)
+    embeds = data.get("embeds", [])
+    view = data.get("view")
+    embed_chunks = ListUtils.chunk_list(embeds, 10)
+    if is_heading_followup:
+        await interaction.followup.send(embeds=data.get("heading_embeds"))
+    else:
+        await interaction.response.send_message(embeds=data.get("heading_embeds"))
+    for i, chunk in enumerate(embed_chunks):
+        await interaction.followup.send(
+            embeds=chunk, **({"view": view} if i == len(embed_chunks) - 1 else {})
+        )
 
 
 def filter_timetable_data(
@@ -65,8 +87,9 @@ def get_timetable_data(
         return []
 
 
-def refresh_timetable_data_in_db(timezone_str: str, air_type: str, tz: tzinfo):
-    current_timestamp = DateTimeUtils.get_current_utc_time()
+def refresh_timetable_data_in_db(
+    timezone_str: str, air_type: str, tz: tzinfo, current_timestamp: datetime
+):
     timetable_data: list[dict] = get_timetable_data(None, None, tz, air_type)
 
     weeks = dict()
@@ -86,12 +109,26 @@ def refresh_timetable_data_in_db(timezone_str: str, air_type: str, tz: tzinfo):
 
 
 async def timetable_dropdown_callback(interaction):
-    await interaction.response.send_message(
-        content=f"okay selected {get_value_from_interaction(interaction)}"
+    await interaction.response.edit_message(view=None)
+    dropdown_value: dict = json.loads(get_value_from_interaction(interaction))
+    date_str = dropdown_value.get("week")
+    timezone_str = dropdown_value.get("timezone")
+    tz = DateTimeUtils.get_timezone_from_string(timezone_str)
+    current_timestamp = DateTimeUtils.get_timestamp_from_date(date_str, tz)
+
+    await send_timetable_embeds_to_discord(
+        interaction,
+        timezone_str,
+        dropdown_value.get("air_type"),
+        current_timestamp,
+        True,
     )
 
 
-def get_timetable_embed(data: list[dict], day, weeks, air_type: str) -> dict:
+def get_timetable_embed(
+    data: list[dict], day, weeks, air_type: str, timezone_str: str
+) -> dict:
+    tz = DateTimeUtils.get_timezone_from_string(timezone_str)
     base_img_url = "https://img.animeschedule.net/production/assets/public/img/"
     heading_embed_props = [
         {
@@ -112,7 +149,7 @@ def get_timetable_embed(data: list[dict], day, weeks, air_type: str) -> dict:
                 },
                 {
                     "name": "Airing on",
-                    "value": f"{_data.get("episodeDate", "N/A")}",
+                    "value": f"{DateTimeUtils.get_timestamp_from_string(_data.get("episodeDate"), tz).strftime(f"%I:%M %p")}",
                     "inline": True,
                 },
                 (
@@ -136,6 +173,7 @@ def get_timetable_embed(data: list[dict], day, weeks, air_type: str) -> dict:
             "options": [
                 {
                     "label": datetime.strptime(week, "%Y-%m-%d").strftime("%B %d"),
+                    "value": f'{{"week": "{week}", "air_type": "{air_type}", "timezone": "{timezone_str}"}}',
                     "default": week == day,
                 }
                 for week in weeks
@@ -155,7 +193,9 @@ def get_timetable_error_embed(msg: str = None) -> dict:
     return {"embed": DiscordEmbedComponent.get_error_embed(msg), "view": None}
 
 
-def get_timetable(timezone_str: str, air_type: str) -> dict:
+def get_timetable(
+    timezone_str: str, air_type: str, current_timestamp: datetime = None
+) -> dict:
     try:
         if timezone_str not in ALLOWED_TIMEZONES or air_type not in ALLOWED_AIR_TYPES:
             return get_timetable_error_embed(
@@ -163,7 +203,8 @@ def get_timetable(timezone_str: str, air_type: str) -> dict:
             )
 
         timezone = DateTimeUtils.get_timezone_from_string(timezone_str)
-        current_timestamp = DateTimeUtils.get_current_time(timezone)
+        if not current_timestamp:
+            current_timestamp = DateTimeUtils.get_current_time(timezone)
         current_day = str(current_timestamp.date())
         # Check if timetable is there for type
         existing_data: TimeTableModel = TimeTableDao.get_by_type(air_type)
@@ -172,13 +213,16 @@ def get_timetable(timezone_str: str, air_type: str) -> dict:
             if existing_data is not None:
                 TimeTableDao.delete(air_type)
             new_data, weeks = refresh_timetable_data_in_db(
-                timezone_str, air_type, timezone
+                timezone_str,
+                air_type,
+                timezone,
+                DateTimeUtils.convert_timestamp_to_utc(current_timestamp),
             )
             filtered_data = filter_timetable_data(
                 new_data, current_timestamp, current_timestamp, True, timezone
             )
             return get_timetable_embed(
-                filtered_data, current_day, weeks.split(","), air_type
+                filtered_data, current_day, weeks.split(","), air_type, timezone_str
             )
 
         # Construct embed
@@ -190,7 +234,11 @@ def get_timetable(timezone_str: str, air_type: str) -> dict:
             timezone,
         )
         return get_timetable_embed(
-            filtered_data, current_day, existing_data.weeks.split(","), air_type
+            filtered_data,
+            current_day,
+            existing_data.weeks.split(","),
+            air_type,
+            timezone_str,
         )
     except Exception as e:
         log.error(
