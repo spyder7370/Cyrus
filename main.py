@@ -1,5 +1,6 @@
 import discord
 from discord import app_commands
+from discord.ext import tasks
 from dotenv import load_dotenv
 
 from config.config import Config
@@ -25,12 +26,17 @@ async def on_ready():
 
         await tree.sync(guild=discord.Object(id=554630626175614978))
         await tree.sync(guild=discord.Object(id=1369602842645499994))
+        await tree.sync()
 
         log.info("Tree commands have been synced")
+
+        schedule_rss_feeds.start()
+        log.info("Started scheduling of rss feeds")
     except Exception as e:
         log.error(
             "Encountered exception while connecting to discord: %s", str(e), exc_info=e
         )
+        schedule_rss_feeds.stop()
 
 
 @tree.command(
@@ -60,6 +66,23 @@ async def timetable_slash_command(
 ):
     log.info("Fetching timetable for timezone: %s", timezone)
     await send_timetable_embeds_to_discord(interaction, timezone, type)
+
+
+@tree.command(
+    name="health",
+    description="Validate if the bot is working",
+)
+async def health_slash_command(interaction):
+    await interaction.response.send_message("ok")
+
+
+@tasks.loop(minutes=15)
+async def schedule_rss_feeds():
+    try:
+        channel_to_upload_to = client.get_channel(1369602842645499997)
+        await channel_to_upload_to.send("hello 15m")
+    except Exception as e:
+        print(f"RSS scheduling failed: {e}")
 
 
 client.run(Config.get_discord_token())

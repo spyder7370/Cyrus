@@ -190,7 +190,10 @@ def get_timetable_embed(
 
 
 def get_timetable_error_embed(msg: str = None) -> dict:
-    return {"embed": DiscordEmbedComponent.get_error_embed(msg), "view": None}
+    return {
+        "heading_embeds": [DiscordEmbedComponent.get_error_embed(msg)],
+        "view": None,
+    }
 
 
 def get_timetable(
