@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 
 import feedparser
 
-from util.string_utils import StringUtils
 from util.logger import log
+from util.string_utils import StringUtils
 
 if hasattr(ssl, "_create_unverified_context"):
     ssl._create_default_https_context = ssl._create_unverified_context

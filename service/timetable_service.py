@@ -149,7 +149,9 @@ def get_timetable_embed(
                 },
                 {
                     "name": "Airing on",
-                    "value": f"{DateTimeUtils.get_timestamp_from_string(_data.get("episodeDate"), tz).strftime(f"%I:%M %p")}",
+                    "value": DateTimeUtils.get_timestamp_from_string(
+                        _data.get("episodeDate"), tz
+                    ).strftime("%I:%M %p"),
                     "inline": True,
                 },
                 (

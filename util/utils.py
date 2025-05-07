@@ -1,5 +1,6 @@
-from util.logger import log
 import os
+
+from util.logger import log
 
 
 def get_config(key: str):

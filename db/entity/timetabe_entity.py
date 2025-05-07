@@ -1,7 +1,6 @@
 from sqlalchemy import text
 
 from db.db import db, conn, metadata
-
 from util.logger import log
 
 TimeTableEntity = db.Table(
