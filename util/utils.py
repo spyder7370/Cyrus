@@ -21,3 +21,15 @@ def get_value_from_interaction(interaction):
             exc_info=e,
         )
         return None
+
+
+def get_value_from_button_interaction(interaction):
+    try:
+        return interaction.data.get("custom_id")
+    except Exception as e:
+        log.error(
+            "Exception encountered while getting button value from discord interaction %s",
+            str(e),
+            exc_info=e,
+        )
+        return None

@@ -1,6 +1,7 @@
 import ssl
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
+import dateutil.parser
 import feedparser
 
 from util.logger import log
@@ -10,7 +11,7 @@ if hasattr(ssl, "_create_unverified_context"):
     ssl._create_default_https_context = ssl._create_unverified_context
 
 
-def get_rss_feeds(url: str, start_time: datetime, time_range: timedelta) -> list:
+def get_rss_feeds(url: str, start_time: datetime) -> list:
     filtered_feeds = []
     try:
         if StringUtils.is_empty(url):
@@ -21,13 +22,9 @@ def get_rss_feeds(url: str, start_time: datetime, time_range: timedelta) -> list
 
         feed = feedparser.parse(url)
         for entry in feed.entries:
-            entry_date = datetime.strptime(entry.published, "%a, %d %b %Y %H:%M:%S %z")
-            if start_time - entry_date <= time_range:
+            entry_date = dateutil.parser.parse(entry.published)
+            if start_time <= entry_date:
                 filtered_feeds.append(entry)
-                # print("Entry Title:", entry.title)
-                # print("Entry Link:", entry.link)
-                # print("Entry Published Date:", entry.published)
-                # print("\n")
         return filtered_feeds
     except Exception as e:
         log.error(

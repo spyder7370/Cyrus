@@ -1,3 +1,4 @@
+import discord
 from discord import Embed
 
 
@@ -9,7 +10,7 @@ class DiscordEmbedComponent:
             embed_var = Embed(
                 title=prop.get("title"),
                 description=prop.get("description"),
-                color=prop.get("color"),
+                color=discord.Color.random(),
             )
             fields: list[dict] = prop.get("fields", [])
             for field in fields:
@@ -22,6 +23,9 @@ class DiscordEmbedComponent:
                 )
             embed_var.set_thumbnail(url=prop.get("thumbnail"))
             embeds.append(embed_var)
+
+            if prop.get("footer"):
+                embed_var.set_footer(text=prop.get("footer").get("text"))
         return embeds
 
     @staticmethod

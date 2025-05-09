@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, tzinfo, date
 
+import dateutil.parser
 import pytz
 
 from util.string_utils import StringUtils
@@ -46,6 +47,18 @@ class DateTimeUtils:
             return datetime.fromisoformat(timestamp_string)
 
         return datetime.fromisoformat(timestamp_string).astimezone(tz=tz)
+
+    @staticmethod
+    def get_timestamp_from_unknown_string(
+        timestamp_string: str = None, tz: tzinfo = None
+    ) -> datetime | None:
+        if StringUtils.is_empty(timestamp_string):
+            return None
+
+        if tz is None:
+            return dateutil.parser.parse(timestamp_string).astimezone(tz=timezone.utc)
+
+        return dateutil.parser.parse(timestamp_string).astimezone(tz=tz)
 
     @staticmethod
     def get_timestamp_from_date(date_string: str, tz: tzinfo = None) -> datetime | None:
