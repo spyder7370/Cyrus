@@ -149,7 +149,9 @@ def get_timetable_embed(
                 },
                 {
                     "name": "Airing on",
-                    "value": f"{DateTimeUtils.get_timestamp_from_string(_data.get("episodeDate"), tz).strftime(f"%I:%M %p")}",
+                    "value": DateTimeUtils.get_timestamp_from_string(
+                        _data.get("episodeDate"), tz
+                    ).strftime("%I:%M %p"),
                     "inline": True,
                 },
                 (
@@ -190,7 +192,10 @@ def get_timetable_embed(
 
 
 def get_timetable_error_embed(msg: str = None) -> dict:
-    return {"embed": DiscordEmbedComponent.get_error_embed(msg), "view": None}
+    return {
+        "heading_embeds": [DiscordEmbedComponent.get_error_embed(msg)],
+        "view": None,
+    }
 
 
 def get_timetable(
