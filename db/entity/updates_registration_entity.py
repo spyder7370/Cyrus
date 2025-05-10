@@ -43,17 +43,17 @@ class UpdatesRegistrationDao:
             return []
 
     @staticmethod
-    def get_all_by_server_id(server_id: str) -> list[UpdatesRegistrationModel] | None:
+    def get_by_server_id(server_id: str) -> UpdatesRegistrationModel | None:
         try:
             query = f"SELECT * FROM updates_registration where server_id = {server_id}"
-            return conn.execute(text(query)).fetchall()
+            return conn.execute(text(query)).fetchone()
         except Exception as e:
             log.error(
-                "Exception encountered while executing UpdatesRegistrationDao.get_all_by_server_id %s",
+                "Exception encountered while executing UpdatesRegistrationDao.get_by_server_id %s",
                 str(e),
                 exc_info=e,
             )
-            return []
+            return None
 
     @staticmethod
     def get_by_id(id: str) -> UpdatesRegistrationModel | None:
@@ -74,7 +74,7 @@ class UpdatesRegistrationDao:
             query = db.insert(UpdatesRegistrationEntity).values(
                 id=str(uuid.uuid4()),
                 refresh_timestamp=entity.refresh_timestamp,
-                air_type=entity.air_type,
+                air_type="sub",
                 channel_id=entity.channel_id,
                 user_id=entity.user_id,
                 server_id=entity.server_id,
@@ -107,3 +107,21 @@ class UpdatesRegistrationDao:
                 exc_info=e,
             )
             return False
+
+    @staticmethod
+    def update_by_id(id: str, refresh_timestamp: str):
+        try:
+            query = db.update(UpdatesRegistrationEntity).values(
+                id=id,
+                refresh_timestamp=refresh_timestamp,
+            )
+            result = conn.execute(query)
+            conn.commit()
+            return result
+        except Exception as e:
+            log.error(
+                "Exception encountered while executing UpdatesRegistrationDao.update_by_id %s",
+                str(e),
+                exc_info=e,
+            )
+            return []

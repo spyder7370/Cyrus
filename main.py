@@ -4,6 +4,11 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from config.config import Config
+from service.episode_updates_service import (
+    register_episode_updates,
+    deregister_episode_updates,
+    schedule_updates_feed,
+)
 from service.rss_service import register_rss, get_rss_feeds_for_server, schedule_feeds
 from service.timetable_service import send_timetable_embeds_to_discord
 from util.logger import log
@@ -33,11 +38,15 @@ async def on_ready():
 
         schedule_rss_feeds.start()
         log.info("Started scheduling of rss feeds")
+
+        schedule_episode_updates.start()
+        log.info("Started scheduling of episode updates")
     except Exception as e:
         log.error(
             "Encountered exception while connecting to discord: %s", str(e), exc_info=e
         )
         schedule_rss_feeds.stop()
+        schedule_episode_updates.stop()
 
 
 @tree.command(
@@ -68,10 +77,6 @@ async def timetable_slash_command(
 @tree.command(
     name="register-rss",
     description="Add rss feed to a channel",
-    guilds=[
-        discord.Object(id=554630626175614978),
-        discord.Object(id=1369602842645499994),
-    ],
 )
 async def register_rss_slash_command(
     interaction, channel: discord.TextChannel, url: str, alias: str
@@ -103,10 +108,6 @@ async def register_rss_slash_command(
 @tree.command(
     name="list-rss",
     description="List all rss feed of the server",
-    guilds=[
-        discord.Object(id=554630626175614978),
-        discord.Object(id=1369602842645499994),
-    ],
 )
 async def list_rss_slash_command(interaction):
     data: dict = get_rss_feeds_for_server(
@@ -122,14 +123,48 @@ async def list_rss_slash_command(interaction):
 @tree.command(
     name="remove-rss",
     description="Remove rss feed from the server",
-    guilds=[
-        discord.Object(id=554630626175614978),
-        discord.Object(id=1369602842645499994),
-    ],
 )
-async def list_rss_slash_command(interaction):
+async def remove_rss_slash_command(interaction):
     await interaction.response.send_message(
         "Please use `/list-rss` to remove rss feeds"
+    )
+
+
+@tree.command(
+    name="register-updates",
+    description="Add episode updates feed to a channel",
+)
+async def register_updates_slash_command(interaction, channel: discord.TextChannel):
+    try:
+        register_episode_updates(
+            str(channel.id),
+            str(interaction.user.id),
+            str(interaction.guild.id),
+            interaction.guild.name,
+        )
+        await interaction.response.send_message(
+            "Successfully added episode updates feed to channel"
+        )
+    except Exception as e:
+        log.error(
+            "Encountered exception while adding episode updates feed to channel %s: %s",
+            channel.id,
+            str(e),
+            exc_info=e,
+        )
+        await interaction.response.send_message(
+            "Something went wrong while adding episode updates feed to channel"
+        )
+
+
+@tree.command(
+    name="remove-updates-feed",
+    description="Remove episode updates feed from the server",
+)
+async def deregister_updates_slash_command(interaction):
+    data = deregister_episode_updates(str(interaction.guild.id), interaction.guild.name)
+    await interaction.response.send_message(
+        embeds=data.get("embeds", []), view=data.get("view")
     )
 
 
@@ -147,6 +182,14 @@ async def schedule_rss_feeds():
         await schedule_feeds(client)
     except Exception as e:
         log.error("RSS scheduling failed: %s", str(e), exc_info=e)
+
+
+@tasks.loop(minutes=15)
+async def schedule_episode_updates():
+    try:
+        await schedule_updates_feed(client)
+    except Exception as e:
+        log.error("Episode scheduling failed: %s", str(e), exc_info=e)
 
 
 client.run(Config.get_discord_token())

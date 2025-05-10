@@ -43,7 +43,6 @@ def get_all_feeds_embed(feeds: list[RssRegistrationModel], server_name: str):
     heading_embed_props = [
         {
             "title": f"**All RSS feeds for `{server_name}`**",
-            "color": 0,
         },
     ]
     heading_embeds = DiscordEmbedComponent.get_embeds(heading_embed_props)
@@ -51,7 +50,6 @@ def get_all_feeds_embed(feeds: list[RssRegistrationModel], server_name: str):
     embed_props = [
         {
             "title": _feed.name,
-            "color": 0,
             "fields": [
                 {
                     "name": "Link",
@@ -89,9 +87,8 @@ def get_feed_embeds(feeds: list) -> list:
         {
             "title": _feed.title,
             "description": BeautifulSoup(
-                StringUtils.trim_to_max_length(_feed.summary, 1000)
+                StringUtils.trim_to_max_length(_feed.summary, 2000)
             ).get_text(separator="\n\n", strip=True),
-            "color": 0,
             "fields": [
                 {
                     "name": "",
@@ -140,7 +137,7 @@ async def schedule_feeds(client):
             channel_to_upload_to = client.get_channel(int(channel_id))
             for embed in embeds:
                 await channel_to_upload_to.send(embed=embed)
-                update_feed_refresh_time(_id, current_time)
+            update_feed_refresh_time(_id, current_time)
 
 
 def register_rss(

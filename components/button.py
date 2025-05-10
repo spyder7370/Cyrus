@@ -9,6 +9,7 @@ class DiscordButtonComponent:
             style=props.get("style"),
             custom_id=props.get("value"),
             label=props.get("label"),
+            url=props.get("url"),
         )
         button_var.callback = callback_function
         return button_var

@@ -133,13 +133,11 @@ def get_timetable_embed(
     heading_embed_props = [
         {
             "title": f"`{air_type.upper()}` **Anime schedule for {datetime.strptime(day, "%Y-%m-%d").strftime('%B %d')}**",
-            "color": 0,
         },
     ]
     embed_props = [
         {
             "title": _data.get("title", "Untitled"),
-            "color": 0,
             "thumbnail": f"{base_img_url}{_data.get("imageVersionRoute")}",
             "fields": [
                 {

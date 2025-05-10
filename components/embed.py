@@ -7,10 +7,12 @@ class DiscordEmbedComponent:
     def get_embeds(props: list[dict]) -> list[Embed]:
         embeds = []
         for prop in props:
+            if prop.get("color") is None:
+                prop["color"] = discord.Color.random()
             embed_var = Embed(
                 title=prop.get("title"),
                 description=prop.get("description"),
-                color=discord.Color.random(),
+                color=prop.get("color"),
             )
             fields: list[dict] = prop.get("fields", [])
             for field in fields:
@@ -22,6 +24,10 @@ class DiscordEmbedComponent:
                     inline=field.get("inline"),
                 )
             embed_var.set_thumbnail(url=prop.get("thumbnail"))
+
+            if prop.get("image"):
+                embed_var.set_image(url=prop.get("image"))
+
             embeds.append(embed_var)
 
             if prop.get("footer"):
